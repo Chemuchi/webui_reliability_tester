@@ -70,11 +70,13 @@ cd webui_reliability_tester
 # 2. Docker 이미지 빌드
 docker build -t reliability-webui .
 
-# 3. GPU를 사용하여 컨테이너 실행
-docker run --gpus all -p 8501:8501 reliability-webui
+# 3. GPU와 공유 메모리를 지정하여 컨테이너 실행
+docker run --gpus all --shm-size=8g -p 8501:8501 reliability-webui
 ```
 
 브라우저에서 `http://localhost:8501` 에 접속합니다.
+
+> **⚠️ `--shm-size=8g` 필수**: Docker 컨테이너의 기본 공유 메모리(shm)는 64MB로, PyTorch DataLoader가 멀티워커로 텐서를 공유할 때 부족합니다. 이 옵션 없이 실행하면 `RuntimeError: unable to allocate shared memory` 오류가 발생합니다.
 
 ---
 
