@@ -12,3 +12,4 @@ pandas
 albumentations
 PyYAML
 psutil
+tabulate

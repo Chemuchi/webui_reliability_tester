@@ -1,3 +1,5 @@
 .DS_Store
 __pycache__
 .idea
+runs/
+yolo26n.pt

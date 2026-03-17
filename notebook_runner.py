@@ -66,6 +66,24 @@ def _temporary_env(updates: dict[str, str]):
                 os.environ[k] = old
 
 
+@contextlib.contextmanager
+def _temporary_cwd(path: Path):
+    """
+    노트북 실행 중 상대경로 산출물이 작업 폴더 밖으로 새지 않도록 cwd를 고정합니다.
+    """
+    path = Path(path).resolve()
+    previous = Path.cwd()
+    path.mkdir(parents=True, exist_ok=True)
+    try:
+        os.chdir(path)
+        yield
+    finally:
+        try:
+            os.chdir(previous)
+        except Exception:
+            pass
+
+
 def _format_reports_error(base_dir: Path) -> str:
     base_dir = Path(base_dir).resolve()
     expected = base_dir / "reports"
@@ -78,14 +96,17 @@ def _format_reports_error(base_dir: Path) -> str:
         )
     return f"reports 디렉토리가 생성되지 않았습니다. 예상 경로: {expected}"
 
+import subprocess
+from typing import Optional, Callable, Tuple
+
 def run_reliability_notebook(
     notebook_path: Path,
     base_dir: Path,
     max_videos: Optional[int] = None,
     max_images_total: Optional[int] = None,
     skip_existing: bool = True,
-    on_log: Optional[Callable[[str], None]] = None,
-) -> Path:
+    selected_scenarios: Optional[list] = None,
+) -> Tuple[subprocess.Popen, Path, Path]:
     """
     reliability_test.ipynb 를 실행해서 base_dir/reports 를 생성하고, 그 경로를 반환합니다.
     - notebook_path: 팀원이 만든 ipynb
@@ -109,18 +130,57 @@ def run_reliability_notebook(
         max_images_total=max_images_total,
         skip_existing=skip_existing,
     )
-    client = NotebookClient(nb, timeout=None, kernel_name="python3")
+    # nbclient 대신 직접 파이썬 스크립트로 변환 후 subprocess 실행
+    source_lines = []
+    for cell in nb.cells:
+        if cell.cell_type == 'code':
+            lines = cell.source.splitlines()
+            # 매직 커맨드 제거
+            lines = [line for line in lines if not line.strip().startswith(('!', '%'))]
+            source_lines.append("\n".join(lines))
+    script_source = "\n\n".join(source_lines)
 
-    buf = io.StringIO()
-    with _temporary_env({"BASE_DIR": str(Path(base_dir).resolve())}):
-        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
-            client.execute()
+    base_dir = Path(base_dir).resolve()
+    
+    # 선택된 시나리오를 SCENARIOS 정의 직후에 필터링 코드를 삽입
+    if selected_scenarios:
+        names_repr = repr(selected_scenarios)
+        filter_snippet = f"\nSCENARIOS = [s for s in SCENARIOS if s.name in {names_repr}]\n"
+        # SCENARIOS = [ 정의 바로 다음 줄 이후에 삽입
+        # 가장 마지막 ']' 닫는 지점 다음에 붙이기
+        import re as _re
+        script_source = _re.sub(
+            r'(SCENARIOS\s*=\s*\[.*?\])',
+            r'\1' + filter_snippet.replace('\\', '\\\\'),
+            script_source,
+            count=1,
+            flags=_re.DOTALL
+        )
 
-    if on_log:
-        for line in buf.getvalue().splitlines():
-            on_log(line + "\n")
+    script_path = base_dir / "run_script.py"
+    script_path.write_text(script_source, encoding="utf-8")
+    
+    log_path = base_dir / "kernel_log.txt"
+    log_file = open(log_path, "w", encoding="utf-8")
 
-    reports_dir = Path(base_dir) / "reports"
+    env_updates = os.environ.copy()
+    env_updates["BASE_DIR"] = str(base_dir)
+    env_updates["YOLO_CONFIG_DIR"] = str(base_dir / ".ultralytics")
+    env_updates["PYTHONUNBUFFERED"] = "1"
+
+    import subprocess
+    import sys
+    
+    process = subprocess.Popen(
+        [sys.executable, str(script_path)],
+        stdout=log_file,
+        stderr=subprocess.STDOUT,
+        cwd=str(base_dir),
+        env=env_updates,
+        text=True
+    )
+
+    return process, log_path, base_dir / "reports"
     if not reports_dir.exists():
         raise RuntimeError(_format_reports_error(base_dir))
     return reports_dir
