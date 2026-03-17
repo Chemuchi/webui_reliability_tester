@@ -60,6 +60,43 @@ Windows에서는 NVIDIA GPU를 Docker 컨테이너 안에서 그대로 사용할
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) 설치 (WSL2 백엔드 활성화)
 - [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) 설치
 
+```bash
+# 1. WSL 안에서 다음 명령어 실행
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
+sudo nvidia-ctk runtime configure --runtime=docker
+
+# 2. Docker Desktop 설정에서 WSL2 Intergration 켜기
+
+# 3. 다음 명령어 실행시 GPU 정보가 나오면 준비됨
+docker run --gpus all nvidia/cuda:12.3.0-base-ubuntu22.04 nvidia-smi
+```
+
+```bash
+Tue Mar 17 10:00:32 2026
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 580.76.04              Driver Version: 580.97         CUDA Version: 13.0     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA GeForce RTX 2060        On  |   00000000:01:00.0  On |                  N/A |
+|  0%   43C    P8             16W /  184W |    1191MiB /  12288MiB |     33%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|    0   N/A  N/A              27      G   /Xwayland                             N/A      |
+|    0   N/A  N/A              46      G   /Xwayland                             N/A      |
++-----------------------------------------------------------------------------------------+
+```
+
 #### 실행
 
 ```bash
