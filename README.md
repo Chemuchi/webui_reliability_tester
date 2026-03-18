@@ -58,7 +58,6 @@ Windows에서는 NVIDIA GPU를 Docker 컨테이너 안에서 그대로 사용할
 #### 사전 준비
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) 설치 (WSL2 백엔드 활성화)
-- [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) 설치
 
 ```bash
 # 1. WSL 안에서 다음 명령어 실행
@@ -68,6 +67,7 @@ sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
 sudo nvidia-ctk runtime configure --runtime=docker
 
 # 2. Docker Desktop 설정에서 WSL2 Intergration 켜기
+# Settings -> Resources -> WSL Intergration -> Ubuntu 체크
 
 # 3. 다음 명령어 실행시 GPU 정보가 나오면 준비됨
 docker run --gpus all nvidia/cuda:12.3.0-base-ubuntu22.04 nvidia-smi
